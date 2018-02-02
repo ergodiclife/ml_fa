@@ -6,6 +6,9 @@
 *.pptx
 *.jpg
 
+# Not these files
+!IPO_year.csv
+
 # compiled files
 *.pyc
 
