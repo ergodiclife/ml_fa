@@ -5,6 +5,7 @@
 *.png
 *.pptx
 *.jpg
+*.zip
 
 # Not these files
 !IPO_year.csv
