@@ -1,14 +1,18 @@
 """
-Builds the fundamental dataset for top 2000 market cap equitities from WRDS.
+Builds the fundamental dataset for top N market cap equitities from WRDS.
 Requires WRDS account. Enter username and password when prompted.
 
-Features: datadate,	gvkey,	year,  month,  mom1m,	mom3m,	mom6m,	mom9m,
+Config changes may be made to build_data_config.ini file
+# N = number of securities sorted by market cap
+# Exclude GICS codes
+
+Features: active, date,	gvkey,	year,  month,  mom1m,	mom3m,	mom6m,	mom9m,
         mrkcap,	entval,	saleq_ttm,	cogsq_ttm,	xsgaq_ttm,	oiadpq_ttm,
         niq_ttm,	cheq_mrq,	rectq_mrq,	invtq_mrq,	acoq_mrq,
         ppentq_mrq,	aoq_mrq,	dlcq_mrq,	apq_mrq,	txpq_mrq,
         lcoq_mrq,   ltq_mrq,	csho_1yr_avg
 
-Takes about 40 minutes to build the complete dataset and outputs a csv
+Takes about 40 minutes to build the dataset for top 2000 equities and outputs a dat file
 """
 
 import wrds
@@ -18,9 +22,19 @@ import numpy as np
 import pickle
 from time import time
 from wrds_data_processing import data_processing
+from ConfigParser import SafeConfigParser, NoOptionError
 import sys
 
+
 start_time = time()
+
+# Read the data config file
+config_data = SafeConfigParser()
+config_data.read('build_data_config.ini')
+# Top N equities by market cap are considered
+N = int(config_data.get('main', 'N'))
+# Exclude following GICS industries from analysis
+exclude_gics = config_data.get('main', 'exclude_gics').split(',')
 
 # Connect to WRDS data engine
 db = wrds.Connection()
@@ -30,7 +44,7 @@ db = wrds.Connection()
 #############################################################################
 
 # Query to get list of companies with top 2000 market cap
-q1 = ("select a.gvkey,a.latest,b.cshoq,b.prccq,b.mkvaltq,b.cshoq*b.prccq as market_cap,b.curcdq "
+q1a = ("select a.gvkey,a.latest,b.cshoq,b.prccq,b.mkvaltq,b.cshoq*b.prccq as market_cap,b.curcdq "
      "from "
         "(select gvkey,max(datadate) as latest "
          "from "
@@ -40,36 +54,79 @@ q1 = ("select a.gvkey,a.latest,b.cshoq,b.prccq,b.mkvaltq,b.cshoq*b.prccq as mark
                 "from compm.fundq where cshoq>0 and prccq>0 and curcdq='USD') b "
     "on a.gvkey = b.gvkey and a.latest=b.datadate "
      "order by market_cap desc "
-    "limit 2000")
+    "limit %i")%N
 
-mrk_df = db.raw_sql(q1)
-top_2000_eq_gvkey_list = mrk_df['gvkey'].values.tolist()
-top_2000_eq_gvkey = tuple(["'%s'"%str(i) for i in top_2000_eq_gvkey_list])
-top_2000_eq_gvkey = ",".join(top_2000_eq_gvkey)
+mrk_df = db.raw_sql(q1a)
+top_N_eq_gvkey_list_all = mrk_df['gvkey'].values.tolist()
 
+# Query to get GIC codes and remove the exclude_gics list
+q1b = ("select gvkey,gsector "
+     "from compa.company ")
+df_gic = db.raw_sql(q1b)
+exclude_gvkey_list = df_gic['gvkey'][df_gic['gsector'].isin(exclude_gics)].tolist()
+
+# remove gvkey of associated gic code from the main list
+top_N_eq_gvkey_list = [k for k in top_N_eq_gvkey_list_all if k not in exclude_gvkey_list]
+
+# Check for continuation of companies and update their status (active or not)
+# Compare the gvkey list with the most recent list if it exists
+# Update the current gvkey list with the inactive ones
+
+# Read the gvkey config file which contains the most recent list
+config_gvkey = SafeConfigParser()
+config_gvkey.read('gvkey_config.ini')
+config_gvkey.set('gvkey_list','# Used to keep track of most recent requity list. No need to edit','')
+try:
+    mr_gvk_list = config_gvkey.get('gvkey_list','most_recent_list').split(',')
+    inactive_list = [k for k in mr_gvk_list if k not in top_N_eq_gvkey_list]
+
+    # Initialize active dict
+    active = {key:1 for key in top_N_eq_gvkey_list}
+    # Add inactive gvkey
+    for inactive_gvk in inactive_list:
+        active[inactive_gvk] = 0
+
+    # Update the current gvkey list with the inactive ones
+    top_N_eq_gvkey_list = list(set().union(top_N_eq_gvkey_list,inactive_list))
+
+    # create the most recent list in the config file if it doesn't exist
+    config_gvkey.set('gvkey_list','most_recent_list',','.join(top_N_eq_gvkey_list))
+
+except NoOptionError:
+    # create the most recent list in the config file if it doesn't exist
+    config_gvkey.set('gvkey_list','most_recent_list',','.join(top_N_eq_gvkey_list))
+
+# save to a file
+with open('gvkey_config.ini', 'w') as configfile:
+    config_gvkey.write(configfile)
+
+# change format to be compatible with sql query
+top_N_eq_gvkey = tuple(["'%s'"%str(i) for i in top_N_eq_gvkey_list])
+top_N_eq_gvkey = ",".join(top_N_eq_gvkey)
 
 # Query to get fundamental Data
 q2 = ("select datadate,gvkey,tic,saleq,cogsq,xsgaq,oiadpq,niq,"
       "cheq, rectq, invtq, acoq, ppentq, aoq, dlcq, apq, txpq, lcoq, ltq, dlttq,cshoq "
     "from compm.fundq "
-     "where gvkey in (%s) ")%top_2000_eq_gvkey
+     "where gvkey in (%s) ")%top_N_eq_gvkey
 fundq_df = db.raw_sql(q2)
+print('\n')
 print("Shape of raw dataframe: %g,%g"%fundq_df.shape)
 print('\n')
 
 # Query to get price data
 q3 = ("select gvkey,datadate,prccm "
      "from compm.secm "
-     "where gvkey in (%s) ")%top_2000_eq_gvkey
+     "where gvkey in (%s) ")%top_N_eq_gvkey
 price_df_all = db.raw_sql(q3).sort_values('datadate')
 
 # Query to get stock_split data
 q4 = ("select gvkey,datadate,split "
      "from compm.sec_split "
-     "where gvkey in (%s) ")%top_2000_eq_gvkey
+     "where gvkey in (%s) ")%top_N_eq_gvkey
 stock_split_df_all = db.raw_sql(q4).sort_values('datadate')
 
-####--------------------------------------------------------------------------
+####--END OF SQL QUERYING-------------------------------------------------------
 
 # Build balance sheet features
 blnc_sheet_list = ['cheq','rectq','invtq','acoq','ppentq','aoq',
@@ -78,13 +135,16 @@ blnc_sheet_list = ['cheq','rectq','invtq','acoq','ppentq','aoq',
 # Build income sheet features
 income_list = ['saleq','cogsq','xsgaq','oiadpq','niq']
 
-gvkey_list = top_2000_eq_gvkey_list
+gvkey_list = top_N_eq_gvkey_list
+print("Total Number of Equities in the dataset")
 print len(gvkey_list)
+print('\n')
 
 df_all = fundq_df[['gvkey','datadate'] + income_list + blnc_sheet_list]
+df_all['active'] = np.nan
 
 def reorder_cols():
-    a = ['datadate','gvkey','year','month']
+    a = ['active','datadate','gvkey','year','month']
     mom = ['mom1m','mom3m','mom6m','mom9m']
     prc = ['mrkcap','entval']
     ttm_list_tmp = [x + '_ttm' for x in income_list]
@@ -99,6 +159,7 @@ def reorder_cols():
 # Create empty df to be appended for each equity
 df_all_eq = pd.DataFrame(columns=reorder_cols())
 
+# Start filling data by gvkey
 for key in gvkey_list:
     #print("GVKEY: %s"%key)
     df = df_all[df_all['gvkey'] == key].copy()
@@ -126,7 +187,8 @@ for key in gvkey_list:
     new_df_empty = dp.create_df_monthly(df)
 
     # Add ttm and mrq data
-    ttm_mrq_df = dp.create_ttm_mrq(df,new_df_empty)
+    status = active[key]
+    ttm_mrq_df = dp.create_ttm_mrq(df,new_df_empty,status)
 
     # Adjust for stock split
     df_split_adjusted = dp.adjust_cshoq(ttm_mrq_df,stock_split_df)
@@ -171,8 +233,15 @@ for date in dates:
 
     del df_date, df_norm
 
+# Change date label from 'datadate' to 'date'
+df_all_eq.rename(columns={'datadate':'date'},inplace=True)
+
+# Change date from Y-m-d to ymd
+df_all_eq['date'] = df_all_eq['date'].dt.strftime('%Y%m%d')
+
 # Output the csv
-df_all_eq.to_csv("top_2000_eq_w_3mo_lag.csv")
+#df_all_eq.to_csv("top_N_eq_w_3mo_lag.csv"%N,index=False)
+df_all_eq.to_csv("del_me.csv",sep=' ',index=False)
 exec_time = time() -start_time
 
-print exec_time
+print("Total Execution Time: %2.2f"%exec_time)

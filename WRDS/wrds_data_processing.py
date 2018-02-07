@@ -135,7 +135,7 @@ class data_processing(object):
         return new_df
 
 
-    def create_ttm_mrq(self,df,new_df):
+    def create_ttm_mrq(self,df,new_df,status):
         """Returns the dataframe with _ttm and _mrq fields"""
 
         # Forward fill the origianl dataframe
@@ -144,11 +144,12 @@ class data_processing(object):
 
         # Fill new_df with monthly frquency between 1st and last day of
         # orginal df
-        cols = ['datadate','gvkey','year','month'] + self.ttm_list
+        cols = ['active','datadate','gvkey','year','month'] + self.ttm_list
         new_df = pd.concat([new_df,pd.DataFrame(columns=cols)])
         new_df = new_df[cols]
 
         # Update gvkey
+        new_df['active'] = status
         new_df['datadate'] = new_df.index.values
         new_df['gvkey'] = df['gvkey'].iloc[0]
         new_df['year'] = [d.year for d in new_df.index]

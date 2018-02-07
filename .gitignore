@@ -7,6 +7,9 @@
 *.jpg
 *.zip
 
+# Test Ipython Notebooks
+test_notebook_wrds.ipynb
+
 # Not these files
 !IPO_year.csv
 
