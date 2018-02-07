@@ -240,7 +240,7 @@ df_all_eq.rename(columns={'datadate':'date'},inplace=True)
 df_all_eq['date'] = df_all_eq['date'].dt.strftime('%Y%m%d')
 
 # Output the csv
-df_all_eq.to_csv("top_N_eq_w_3mo_lag.csv"%N,index=False)
+df_all_eq.to_csv("top_N_eq_w_3mo_lag.csv",index=False)
 
 exec_time = time() -start_time
 
