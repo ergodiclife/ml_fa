@@ -31,11 +31,17 @@ lcoq_mrq,   ltq_mrq,	csho_1yr_avg
 	Exclude GICS Codes - GICS industry codes to be removed for analysis
 
 	*No need to edit gvkey_config.ini*
+	
+2. gvkey_config.ini
 
-2. Run build_data.py
+	No need to edit this file. It is used to keep track of equities from previous runs for contiuation.
+	
+	Caveat: most_recent_list in the file will be populated after every run. If you want to run a test with smaller N after running a larger N, make sure to clear the list. You may delete everything from the file except the first line which defines the section for the config file.
+
+3. Run build_data.py
 
 	Provide username and password for WRDS account. The prompt will ask for username and password everytime build_data.py is run. 
 	
 	Not required but if you want to automate it, username and password can be saved in the postgresql config file. Details are [here](https://www.postgresql.org/docs/9.3/static/libpq-pgpass.html)
 	
-3. Dataset is saved as a csv
+4. Dataset is saved as a csv
