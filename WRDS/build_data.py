@@ -93,6 +93,9 @@ try:
     config_gvkey.set('gvkey_list','most_recent_list',','.join(top_N_eq_gvkey_list))
 
 except NoOptionError:
+    # Initialize active dict
+    active = {key:1 for key in top_N_eq_gvkey_list}
+    
     # create the most recent list in the config file if it doesn't exist
     config_gvkey.set('gvkey_list','most_recent_list',','.join(top_N_eq_gvkey_list))
 
@@ -240,7 +243,7 @@ df_all_eq.rename(columns={'datadate':'date'},inplace=True)
 df_all_eq['date'] = df_all_eq['date'].dt.strftime('%Y%m%d')
 
 # Output the csv
-df_all_eq.to_csv("top_N_eq_w_3mo_lag.csv",index=False)
+df_all_eq.to_csv("top_N_eq_w_3mo_lag.csv",sep=' ',index=False)
 
 exec_time = time() -start_time
 

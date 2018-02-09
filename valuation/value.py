@@ -9,6 +9,7 @@ sys.path.append("..")
 from data.scripts.simplified_finance_stats.fin_stats import fin_stats
 from data.scripts.simplified_finance_stats.fin_stats_2 import fin_stats_2
 from data.scripts.simplified_finance_stats.stock_stats import stock_stats
+from data_projections import data_projections
 from input_params import get_inp_params
 
 class valuation(object):
@@ -42,6 +43,10 @@ class valuation(object):
         self.inp_params = get_inp_params(tick,finances,fin_others,mkt_data)
         self.fcf = fcf
         self.n_years = int(self.fcf['non_terminal'].shape[0])
+
+        dp = data_projections(tick,finances,fin_others,mkt_data)
+        print dp.revenue_projection()
+        sys.exit()
 
     def cost_of_capital(self):
         """ Returns the vector for cost of capital for each year in the fcf"""
