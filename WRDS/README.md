@@ -17,20 +17,23 @@ lcoq_mrq,   ltq_mrq,	csho_1yr_avg
 1. Numpy
 2. Pandas
 3. Psycopg2
-4. WRDS - 	Github repo can be found [here](https://github.com/wharton/wrds) 
-			WRDS requires Pandas and Psycopg2. Details of Psycopg2 are given on the link above.
+4. WRDS - 	Github repo can be found [here](https://github.com/wharton/wrds). 
+			WRDS requires Pandas and Psycopg2. Details of Psycopg2 are given on the linked page.
 			
 ## Additional Requirements
 1. WRDS account credentials
 
 ## Usage
 1. build_data_config.ini
+
 	N = Number of securities sorted by market cap
+	
 	Exclude GICS Codes - GICS industry codes to be removed for analysis
 
-	No need to edit gvkey_config.ini
+	*No need to edit gvkey_config.ini*
 
 2. Run build_data.py
+
 	Provide username and password for WRDS account. The prompt will ask for username and password everytime build_data.py is run. 
 	
 	Not required but if you want to automate it, username and password can be saved in the postgresql config file. Details are [here](https://www.postgresql.org/docs/9.3/static/libpq-pgpass.html)
