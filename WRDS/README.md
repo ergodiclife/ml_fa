@@ -1,6 +1,6 @@
 # WRDS DATA
 
-This module builds the dataset from WRDS used by deep-quant. WRDS account ceredentials are required to run the module.
+This module builds the dataset from WRDS used by [deep-quant](https://github.com/euclidjda/deep-quant) . WRDS account ceredentials are required to run the module.
 
 ## Dataset details
 Fundamental data for top N market cap equities is acquired from WRDS and processed to be used for training. Configuration for data acquition is described in usage.
