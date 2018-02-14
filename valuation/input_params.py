@@ -56,8 +56,8 @@ def get_inp_params(tick,finances,fin_others,mkt_data):
     # Assumptions
 
     # 1. In stable growth, cost of capital = risk_free_rate + 4.5%
-    cc_default = inp_params['rf_rate'] + 0.045
-    inp_params['stable_cc_default'] = [False,0.085]
+    inp_params['stable_cc_default'] = inp_params['rf_rate'] + 0.045
+
     # To use other cc value, use False and cc after year 10
 
     # 2. After year 10, return on capital = cost of capital after year 10.
@@ -78,7 +78,7 @@ def get_inp_params(tick,finances,fin_others,mkt_data):
     # After 10 year, growth  = risk free rate
     # Ensures that unreasonalble growth rates are not used
     stable_avg_growth_rate = inp_params['rf_rate']
-    inp_params['stable_growth_rate_default'] = [False,0.03]
+    inp_params['stable_growth_rate_default'] = 0.3
     # To use other values, use False and growth rate after year 10
 
     # 6. Cash in other countries

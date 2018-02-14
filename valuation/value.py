@@ -20,7 +20,7 @@ class valuation(object):
 
     """
 
-    def __init__(self,fcf,tick,finances=None,fin_others=None,mkt_data=None):
+    def __init__(self,tick,finances=None,fin_others=None,mkt_data=None):
         """ Instantiates using inp_parameters (from inp_params.py) and fcf.
         fcf is a dict containing non-terminal and terminal cashflows"""
 
@@ -41,42 +41,41 @@ class valuation(object):
             mkt_data = stock_stats(base_path + mkt_path)
 
         self.inp_params = get_inp_params(tick,finances,fin_others,mkt_data)
-        self.fcf = fcf
-        self.n_years = int(self.fcf['non_terminal'].shape[0])
+        time_period = 10
+        self.n_years = time_period
 
-        dp = data_projections(tick,finances,fin_others,mkt_data)
-        print dp.revenue_projection()
-        sys.exit()
+        self.dp = data_projections(tick,finances,fin_others,mkt_data,time_period)
 
-    def cost_of_capital(self):
+        self.stable_cc_default = .085
+
+
+
+    def cost_of_capital(self,terminal_cc=None):
         """ Returns the vector for cost of capital for each year in the fcf"""
 
         years = np.linspace(0,self.n_years-1,self.n_years)
 
         # cost of capital
         init_cc = self.inp_params['cost_of_capital']
-        terminal_cc = self.inp_params['stable_cc_default'][1]
+        if terminal_cc == None:
+            terminal_cc = self.inp_params['stable_cc_default']
 
         # initialize cost of capital vector
         cc_vector = np.ones(self.n_years)*init_cc
 
-        # linearly regress to achieve target or terminal cost of capital
-        x = np.array([years[np.floor((self.n_years/2.)-1)],years[-1]])
-        y = np.array([init_cc,terminal_cc])
-        coeffs = np.polyfit(x,y,1)
-        p = np.poly1d(coeffs) # regression line polynomial
+        # linearly regress from mid point to achieve target or terminal cost of capital
 
-        # Update the cc_vector with new cc values after mid point
-        for i,rate in enumerate(cc_vector):
-            if i > np.floor((self.n_years/2.)-1):
-                cc_vector[i] = p(i)
+        n2 = int(np.floor((len(years)/2.)+1))
+        cc_2_half = np.linspace(init_cc,terminal_cc,n2)
+        cc_vector[-n2::] = cc_2_half
 
         return cc_vector
+
 
     def cum_discount_factor(self):
         """ Returns the vector of cumulative discount factors for every year"""
 
-        cc_vector = self.cost_of_capital()
+        cc_vector = self.cost_of_capital(self.stable_cc_default)
 
         # Initialize cumulative discount factor vector
         cdf = np.ones(self.n_years)
@@ -93,15 +92,33 @@ class valuation(object):
     def pv_cf(self):
         """ Returns the present value of sum of all cashflows"""
 
-        cc_vector = self.cost_of_capital()
+        cc_vector = self.cost_of_capital(self.stable_cc_default)
         cdf = self.cum_discount_factor()
 
+        rev = self.dp.revenue()
+        ebit = self.dp.oper_income(rev)
+        ebit_at = self.dp.income_after_taxes(ebit)
+        reinv = self.dp.reinvestment(rev)
+
+        print("Rev")
+        print rev
+        print("ebit")
+        print ebit
+        print ebit_at
+        print reinv
+        print np.divide(reinv,rev)
+
+        non_terminal_fcf = ebit_at - reinv
+
+        print non_terminal_fcf
+        print(self.inp_params['eff_tax_r'])
+
+
         # total present value of all future cash flows excluding terminal cash flow
-        pv_fcf = np.dot(self.fcf['non_terminal'],cdf)
+        pv_fcf = np.dot(non_terminal_fcf,cdf)
 
         # terminal Cashflow
-        terminal_value = self.fcf['terminal']/ \
-                (cc_vector[-1] - self.inp_params['stable_growth_rate_default'][1])
+        terminal_value = self.dp.terminal_cash_flow(rev,.14)
 
         pv_terminal_value = terminal_value*cdf[-1]
 
@@ -146,14 +163,7 @@ class valuation(object):
 if __name__ == '__main__':
 
     # Test
-    fcf = {}
-    fcf['non_terminal'] = np.array([16338.4,19126.57,22287.68,25833.92,
-                                    29760.31,31996.11,32994.82,32598.71,
-                                    30831.27,27902.47])
-
-    fcf['terminal'] = 23336.29
-
-    v = valuation(fcf,'FB')
+    v = valuation('FB')
 
     v1,p1 = v.val_eq()
 
