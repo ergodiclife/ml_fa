@@ -184,6 +184,7 @@ if __name__ == '__main__':
     v = valuation()
 
     tick_list = ['AAPL','BAC','WFC','MSFT','GOOGL']
+    #tick_list = ['AAPL']
     for tick in tick_list:
         v.setup_data(tick)
 

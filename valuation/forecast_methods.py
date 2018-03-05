@@ -4,6 +4,8 @@
 import numpy as np
 import pandas as pd
 from sklearn import linear_model
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
 from sklearn.metrics import mean_squared_error,r2_score
 from lstm_build import lstm_baseclass
 import matplotlib.pyplot as plt
@@ -15,7 +17,7 @@ import sys
 class forecast_methods(lstm_baseclass):
     """"Forecasting methods"""
 
-    def __init__(self,series,forecast_period=5,hist_period=10,val_period=5):
+    def __init__(self,series,forecast_period=5,hist_period=5,val_period=5):
         self.series = series
         self.forecast_period = forecast_period
         self.hist_period = hist_period
@@ -69,7 +71,8 @@ class forecast_methods(lstm_baseclass):
         y_train = gr[0:-1*self.val_period,:]
 
         # Create linear regression model object
-        regr = linear_model.LinearRegression()
+        #regr = linear_model.LinearRegression()
+        regr = make_pipeline(PolynomialFeatures(2),linear_model.Ridge(alpha=1.0))
 
         # train the model
         regr.fit(x_train,y_train)
@@ -113,7 +116,8 @@ class forecast_methods(lstm_baseclass):
         y_train = gr
 
         # Create linear regression model object
-        regr = linear_model.LinearRegression()
+        #regr = linear_model.LinearRegression()
+        regr = make_pipeline(PolynomialFeatures(2),linear_model.Ridge(alpha=1.0))
 
         # train the model
         regr.fit(x_train,y_train)
@@ -144,11 +148,14 @@ class forecast_methods(lstm_baseclass):
         gr_series = (1*diff/hist_rev)
         gr_series = gr_series.dropna()
         series = hist_rev
+        #series = gr_series
 
         # configure
         n_lag = 2
         #n_seq = self.forecast_period+1
         n_seq_options = range(1,self.forecast_period+1+1)
+        # to project growth rate
+        #n_seq_options = range(1,self.forecast_period+1)
         n_test = 1
         n_epochs = 10
         n_batch = 1
@@ -197,7 +204,7 @@ class forecast_methods(lstm_baseclass):
         # This method calculates the revenue forecasts while others forecast
         # growth rates
 
-        #forecast_grw_rate = np.divide(np.ediff1d(forecasts[0]),forecasts[0][0:-1])
+        #forecast_grw_rate = forecasts
         forecast_grw_rate = np.divide(np.ediff1d(forecasts),forecasts[0:-1])
 
         lstm_mse = mean_squared_error(self.val_pred['actual'],forecast_grw_rate)

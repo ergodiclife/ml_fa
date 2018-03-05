@@ -12,6 +12,7 @@
 
 # Test Ipython Notebooks
 test_notebook_wrds.ipynb
+test_value.ipynb
 
 # Not these files
 !IPO_year.csv
