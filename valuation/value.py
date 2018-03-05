@@ -11,6 +11,7 @@ from data.scripts.simplified_finance_stats.fin_stats_2 import fin_stats_2
 from data.scripts.simplified_finance_stats.stock_stats import stock_stats
 from data_projections import data_projections
 from input_params import get_inp_params
+from reportlab.pdfgen import canvas
 
 class valuation(object):
     """ Computes the intrinsic value of the company.
@@ -20,7 +21,7 @@ class valuation(object):
 
     """
 
-    def __init__(self,tick,finances=None,fin_others=None,mkt_data=None):
+    def __init__(self,finances=None,fin_others=None,mkt_data=None):
         """ Instantiates using inp_parameters (from inp_params.py) and fcf.
         fcf is a dict containing non-terminal and terminal cashflows"""
 
@@ -36,17 +37,21 @@ class valuation(object):
             mkt_path = 'combined_simplified/stock_stats_all_us.csv'
 
             # setup all data
-            finances = fin_stats(base_path + sheets_path)
-            fin_others = fin_stats_2(base_path + other_path)
-            mkt_data = stock_stats(base_path + mkt_path)
+            self.finances = fin_stats(base_path + sheets_path)
+            self.fin_others = fin_stats_2(base_path + other_path)
+            self.mkt_data = stock_stats(base_path + mkt_path)
 
-        self.inp_params = get_inp_params(tick,finances,fin_others,mkt_data)
+    def setup_data(self,tick):
+        """Sets up data for one tick symbol"""
+        self.inp_params = get_inp_params(tick,self.finances,self.fin_others,self.mkt_data)
         time_period = 10
         self.n_years = time_period
 
-        self.dp = data_projections(tick,finances,fin_others,mkt_data,time_period)
+        self.dp = data_projections(tick,self.finances,self.fin_others,self.mkt_data,time_period)
 
         self.stable_cc_default = .085
+        self.tick = tick
+        return
 
 
 
@@ -100,17 +105,19 @@ class valuation(object):
         ebit_at = self.dp.income_after_taxes(ebit)
         reinv = self.dp.reinvestment(rev)
 
-        print("Rev")
-        print rev
-        print("ebit")
-        print ebit
-        print ebit_at
-        print reinv
-        print np.divide(reinv,rev)
+        #print("Rev")
+        #print(rev)
+        #print("EBIT")
+        #print(ebit)
+        #print("EBIT_After Tax")
+        #print(ebit_at)
+        #print("Reinvestment")
+        #print(reinv)
+        #print(np.divide(reinv,rev))
 
         non_terminal_fcf = ebit_at - reinv
 
-        print non_terminal_fcf
+        #print(non_terminal_fcf)
         print(self.inp_params['eff_tax_r'])
 
 
@@ -159,12 +166,36 @@ class valuation(object):
 
         return val_per_share,p_to_val
 
+    def write_pdf(self,c,img1,img2,img3,v,p):
+        c.drawString(250,800,"Intrinsic Valuation Report : %s"%self.tick)
+        c.drawString(50,760,"Intrinsic Value Per Share: %g"%v)
+        c.drawString(50,740,"Market Value as a percentage of Intrinsic Value: %g"%p)
+        c.drawString(50,700,"Intrinsic value calculation is based on Discounted Cash Flow model which requires")
+        c.drawString(50,680,"revenue forecasting. The plots on revenue forecating and validation are given below.")
+
+        c.drawInlineImage(img1,50,450, width=250,height=200)
+        c.drawInlineImage(img2,300,450, width=250,height=200)
+        c.drawInlineImage(img3,50,220, width=250,height=200)
+
 
 if __name__ == '__main__':
 
     # Test
-    v = valuation('FB')
+    v = valuation()
 
-    v1,p1 = v.val_eq()
+    tick_list = ['AAPL','BAC','WFC','MSFT','GOOGL']
+    for tick in tick_list:
+        v.setup_data(tick)
 
-    print v1,p1
+        v1,p1 = v.val_eq()
+
+        print(v1,p1)
+
+        # Write PDF
+        c = canvas.Canvas("%s Value.pdf"%tick)
+        comparison_img = 'comparison.png'
+        final_frcst_img = 'final_forecast.png'
+        all_frcst_lstm = 'all_forecast_lstm.png'
+        v.write_pdf(c,final_frcst_img,comparison_img,all_frcst_lstm,v1,p1)
+        c.showPage()
+        c.save()

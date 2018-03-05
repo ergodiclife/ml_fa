@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from input_params import get_inp_params
+from forecast_methods import forecast_methods
 import sys
 
 class data_projections(object):
@@ -23,37 +24,57 @@ class data_projections(object):
         self.time_period = time_period
         self.time_period_half = int(time_period/2.)
 
-    def revenue(self,hist_period = 20, order=2,reduction_factor=0.75):
+    def revenue(self,hist_period = 20, reduction_factor=0.75):
         """Returns the projected revenue for 2*time_period years
             For 2nd order: Growth rate constant for the first half and
             decreases linearly to rf rate
         """
 
-        if order == 2:
-            hist_rev  = self.i.loc['revt'].values
-            hist_rev = hist_rev[-1*hist_period::]
+        """
+        hist_rev  = self.i.loc['revt'].values
+        hist_rev = hist_rev[-1*hist_period::]
 
-            hist_period = np.array(self.i.columns)[-1*hist_period::]
+        hist_period = np.array(self.i.columns)[-1*hist_period::]
 
-            past_N = float(hist_period.shape[0])
+        past_N = float(hist_period.shape[0])
 
-            CAGR = ((hist_rev[-1]/hist_rev[0])**(1/past_N) - 1)*reduction_factor
+        CAGR = ((hist_rev[-1]/hist_rev[0])**(1/past_N) - 1)*reduction_factor
 
-            # First half
-            # Factor is the vector of multiplication factors according to growth
-            # rates.
-            p = range(1,self.time_period_half+1)
-            factor = [(1+CAGR)**k for k in p]
+        # First half
+        # Factor is the vector of multiplication factors according to growth
+        # rates.
+        p = range(1,self.time_period_half+1)
+        factor = [(1+CAGR)**k for k in p]
+        """
 
-            # Second half
-            # Growth rate decreases from CAGR to rf_rate
-            rf_rate = self.inp_params['rf_rate']
-            grw_rate = np.linspace(CAGR,rf_rate,self.time_period_half+1)[1::]
-            for r in grw_rate:
-                factor.append((1+r)*factor[-1])
+        hist_rev  = self.i.loc['revt'].values
+        hist_rev = hist_rev[-1*hist_period::]
+        series = self.i.loc['revt']
 
-            rev = hist_rev[-1]*np.array(factor)
-            return rev
+        print("Series Length:%g"%len(series))
+
+        fm = forecast_methods(series,forecast_period=self.time_period_half,
+                                hist_period=hist_period,val_period=5)
+        # Run constant_model
+        _,CAGR = fm.constant_model()
+        # Run regression model validation
+        fm.regression_model_val()
+        # Run regression on all data
+        fm.regression_model()
+        # run LSTM model
+        fm.lstm_model()
+        # Select the best model for factor vector
+        factor = list(fm.select_model())
+
+        # Second half
+        # Growth rate decreases from CAGR to rf_rate
+        rf_rate = self.inp_params['rf_rate']
+        grw_rate = np.linspace(CAGR,rf_rate,self.time_period_half+1)[1::]
+        for r in grw_rate:
+            factor.append((1+r)*factor[-1])
+
+        rev = hist_rev[-1]*np.array(factor)
+        return rev
 
     def oper_income(self,revenue):
         """Returns the vector of operating income data_projections
@@ -61,9 +82,9 @@ class data_projections(object):
 
         ebit_ini=self.inp_params['ebit']
         oper_margin_ini = ebit_ini/self.i.loc['revt'].values[-1]
-        print oper_margin_ini
-        print ebit_ini
-        print self.i.loc['revt'].values[-1]
+        print(oper_margin_ini)
+        print(ebit_ini)
+        print(self.i.loc['revt'].values[-1])
         oper_margin_vec = np.linspace(oper_margin_ini,
                             self.inp_params['target_ebit'],self.time_period+1)[1::]
 

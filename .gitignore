@@ -6,6 +6,9 @@
 *.pptx
 *.jpg
 *.zip
+*.hdf5
+*.pdf
+*.pickle
 
 # Test Ipython Notebooks
 test_notebook_wrds.ipynb
